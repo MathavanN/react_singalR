@@ -18,5 +18,5 @@
 - Create a new activity (it will route to the details of that activity), where you can see the reply from SingalR
 
 ### Current Issues in React Application
-- If a client disconnect, the SignalR connection is not stopping.
-- If a client disconnect and reconnect, it will create multiple SignalR connections.
+- ~~If a client disconnect, the SignalR connection is not stopping.~~ (fixed)
+- ~~If a client disconnect and reconnect, it will create multiple SignalR connections.~~ (fixed)
