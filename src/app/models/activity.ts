@@ -14,3 +14,10 @@ export interface IUpdateActivityStatus {
     id: string;
     percentage: number
 }
+
+export interface IAllActivityStatus {
+    id: string;
+    activityId: string;
+    userName: string;
+    percentage: number;
+}
