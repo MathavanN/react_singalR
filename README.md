@@ -15,7 +15,10 @@
 - Run the React Application by "npm start"
 - Default users added to the API project (bob@test.com, jane@test.com, tom@test.com) with password "Pa$$w0rd"
 - Use any of the user login details
-- Create a new activity (it will route to the details of that activity), where you can see the reply from SingalR
+- Create a new activity, right side youo can see the reply from SignalR (regardless of user)
+- Along with the list of activity, there two buttons. Delete/View Status
+- Click on View Status, go to the activity details page, where you can see the SignalR reply for that particular activity.
+- Single SingalR connection used.
 
 ### Current Issues in React Application
 - ~~If a client disconnect, the SignalR connection is not stopping.~~ (fixed)
