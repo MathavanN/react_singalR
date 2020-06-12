@@ -1,69 +1,71 @@
-import React, { useContext, Fragment, useEffect } from 'react'
-import { RootStoreContext } from '../../app/stores/rootStore'
-import { observer } from 'mobx-react-lite'
-import { List, Grid, Button } from 'semantic-ui-react'
-import { LoadingComponent } from '../../app/layout/LoadingComponent'
-import { ICreateActivity } from '../../app/models/activity'
-import { Link } from 'react-router-dom'
+import React, { useContext, useEffect } from "react";
+import { RootStoreContext } from "../../app/stores/rootStore";
+import { observer } from "mobx-react-lite";
+import { Grid, Button, Segment, Message, Container } from "semantic-ui-react";
+import { LoadingComponent } from "../../app/layout/LoadingComponent";
+import { ICreateActivity } from "../../app/models/activity";
+import ActivityList from "./ActivityList";
+import ActivitySummary from "./ActivitySummary";
 
 const ActivityDashboard = () => {
-    const rootStore = useContext(RootStoreContext)
-    const { user } = rootStore.userStore;
-    const { activities, loadingInitial, loadActivities, createActivity, deleteActivity } = rootStore.activityStore;
+  const rootStore = useContext(RootStoreContext);
+  const { user } = rootStore.userStore;
+  const {
+    activities,
+    loadingInitial,
+    loadActivities,
+    createActivity,
+    createHubConnection,
+    stopHubConnection,
+  } = rootStore.activityStore;
 
-    useEffect(() => {
-        if (user !== null)
-            loadActivities(user!.userName);
-    }, [loadActivities, user]);
-
-    const handleCreatActivity = () => {
-        const tempActivity: ICreateActivity = {
-            name: "Test"
-        }
-        createActivity(tempActivity);
+  useEffect(() => {
+    if (user !== null) {
+      loadActivities(user!.userName);
+      createHubConnection();
     }
-    if (loadingInitial)
-        return <LoadingComponent content="Loading activities" />
+    return () => {
+      stopHubConnection();
+    };
+  }, [loadActivities, user, createHubConnection, stopHubConnection]);
 
-    return (
-        <Fragment>
-            <Grid>
-                <Grid.Column width={10}>
-                    {
-                        activities && (
-                            <List divided relaxed>
-                                {activities.map(activity => (
-                                    <List.Item key={activity.id}>
-                                        <List.Content floated='right'>
-                                            <Button.Group>
-                                                <Button onClick={(e) => deleteActivity(e, activity.id)}>Delete</Button>
+  const handleCreatActivity = () => {
+    const tempActivity: ICreateActivity = {
+      name: "Test",
+    };
+    createActivity(tempActivity);
+  };
 
-                                                <Button
-                                                    as={Link} to={`/activity/${activity.id}`}>View Status</Button>
-                                            </Button.Group>
+  if (loadingInitial) return <LoadingComponent content="Loading activities" />;
 
-                                        </List.Content>
-                                        <List.Icon name='github' size='large' verticalAlign='middle' />
-                                        <List.Content>
-                                            <List.Header as='a'>{activity.id}</List.Header>
-                                            <List.Description as='a'>Name: {activity.name}</List.Description>
-                                            <List.Description as='a'>Status: {activity.status}</List.Description>
-                                            <List.Description as='a'>Result: {activity.result}</List.Description>
-                                        </List.Content>
-                                    </List.Item>
-                                ))}
-                            </List>
-                        )
-                    }
-                    <Button primary onClick={handleCreatActivity}>CreateActivity</Button>
-                </Grid.Column>
-                <Grid.Column width={6}>
-                </Grid.Column>
-            </Grid>
+  return (
+    <Container style={{ marginTop: "3em" }}>
+      <Grid>
+        <Grid.Column width={10}>
+          {activities.length === 0 ? (
+            <Message warning>
+              <Message.Header>
+                {user!.userName}, there are no activities.
+              </Message.Header>
+              <p>Please create a new activity.</p>
+            </Message>
+          ) : (
+            <Segment vertical>
+              <ActivityList />
+            </Segment>
+          )}
+          <Segment vertical color="red">
+            <Button primary onClick={handleCreatActivity}>
+              Create Activity
+            </Button>
+          </Segment>
+        </Grid.Column>
+        <Grid.Column width={6}>
+          <ActivitySummary />
+        </Grid.Column>
+      </Grid>
+    </Container>
+  );
+};
 
-        </Fragment>
-
-    )
-}
-
-export default observer(ActivityDashboard)
+export default observer(ActivityDashboard);
