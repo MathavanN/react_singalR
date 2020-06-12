@@ -1,15 +1,18 @@
 import { RootStore } from "./rootStore";
-import { observable, action, runInAction } from "mobx";
-import { IActivity, ICreateActivity, IUpdateActivityStatus } from "../models/activity";
+import { observable, action, runInAction, computed } from "mobx";
+import { IActivity, ICreateActivity, IUpdateActivityStatus, IAllActivityStatus } from "../models/activity";
 import agent from "../api/agent";
 import { SyntheticEvent } from "react";
-import history from '../../history'
+import { HubConnection, HubConnectionBuilder, LogLevel, HubConnectionState } from "@microsoft/signalr";
+import { v4 as uuidv4 } from 'uuid';
+import _ from 'lodash'
 
+const ALL_ACTIVITY_LIMIT = 10;
 export default class ActivityStore {
     rootStore: RootStore;
 
     constructor(rootStore: RootStore) {
-        this.rootStore = rootStore
+        this.rootStore = rootStore;
     }
 
     @observable activities: IActivity[] = [];
@@ -18,6 +21,82 @@ export default class ActivityStore {
     @observable progressStatus: string = ""
     @observable submitting = false;
     @observable target = "";
+    @observable.ref hubConnection: HubConnection | null = null;
+    @observable activityStatus = new Map();
+    @observable details = ''
+    @observable allActivityStatus: IAllActivityStatus[] = [];
+
+    @computed get getAllActivityStatus() {
+        return _.reverse(_.takeRight(this.allActivityStatus, ALL_ACTIVITY_LIMIT))
+    }
+
+    @action createHubConnection = async () => {
+        try {
+            this.hubConnection = new HubConnectionBuilder()
+                .withUrl(process.env.REACT_APP_API_CHAT_URL!, {
+                    accessTokenFactory: () => this.rootStore.commonStore.token!
+                })
+                .configureLogging(LogLevel.Information)
+                .build()
+            await this.hubConnection.start()
+            console.log('SignalR Connection state : ', this.hubConnection!.state)
+
+            this.hubConnection.on("ReceiveStatus", (jobId: string, user: string, percentage: number) => {
+                console.log("ReceiveStatus ", jobId, user, percentage)
+                runInAction('receiving status for all activities', () => {
+                    const activityStatus: IAllActivityStatus = {
+                        id: uuidv4(),
+                        activityId: jobId,
+                        userName: user,
+                        percentage: percentage
+                    }
+                    this.allActivityStatus.push(activityStatus)
+                });
+            })
+        } catch (error) {
+            console.log('Error while establishing connection: ' + { error })
+        }
+    }
+
+    @action connectToGroup = async (groupId: string) => {
+        if (this.hubConnection!.state === HubConnectionState.Disconnected) {
+            await this.hubConnection!.start()
+        }
+
+        console.log('from connectToGroup', this.hubConnection!.state);
+        if (this.hubConnection!.state === HubConnectionState.Connected) {
+            try {
+                console.log('Connected')
+                await this.hubConnection!.invoke('AssociateJob', groupId);
+            } catch (error) {
+                console.error('inside AssociateJob error : ', error);
+            }
+        }
+
+        this.hubConnection!.on("ActivityProgress", (percentage: number) => {
+            console.log("ActivityProgress ", percentage)
+            runInAction('receiving status for a activity', () => {
+                if (percentage % 5 === 0) {
+                    const activityStatus: IUpdateActivityStatus = {
+                        id: groupId,
+                        percentage: percentage
+                    }
+                    this.updateActivityStatus(activityStatus);
+                }
+
+                if (percentage === 100) {
+                    this.details = `${groupId}-Finished!`
+                }
+                else {
+                    this.details = `${groupId}-${percentage}%`
+                }
+            })
+        })
+    }
+
+    @action stopHubConnection = () => {
+        this.hubConnection!.stop();
+    }
 
     @action loadActivities = async (userId: string) => {
         this.loadingInitial = true;
@@ -62,7 +141,6 @@ export default class ActivityStore {
                 this.activities.push(activity)
                 this.loadingInitial = false;
             })
-            history.push(`/activity/${activity.id}`)
         } catch (error) {
             runInAction("creating activity error", () => {
                 this.loadingInitial = false;
@@ -89,7 +167,6 @@ export default class ActivityStore {
             await agent.Activities.delete(id);
             runInAction("delete an activity", () => {
                 this.activities = this.activities.filter(a => a.id !== id);
-                console.log(this.activities.length)
                 this.target = ''
             })
         }
